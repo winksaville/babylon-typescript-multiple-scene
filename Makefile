@@ -12,7 +12,7 @@ TSC_FLAGS += --experimentalDecorators
 TSC_FLAGS += --forceConsistentCasingInFileNames
 TSC_FLAGS += --strictNullChecks
 
-test.js: test.ts js/babylon.d.ts Makefile
+test.js: test.ts js/babylon.d.ts Makefile index.html
 	rm -f test.js test.d.ts # Remove so on errors we won't see old files
 	tsc $(TSC_FLAGS) test.ts js/babylon.d.ts
 

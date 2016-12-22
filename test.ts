@@ -1,15 +1,36 @@
 // Test Multiple Scenes
 console.log("ww=" + window.innerWidth + " wh=" + window.innerHeight);
 
+/**
+ * An interface that animates
+ */
 interface MyAnimation {
   animate() : void;
 }
 
+/**
+ * A Scene which can be one of many. It's main features
+ * are it uses a standard camera, light and its background is
+ * transparent and black. Each scene could have different
+ * cammera and lights.
+ */
 class MyScene extends BABYLON.Scene implements MyAnimation {
+  private _name: string;
+  private _camera: BABYLON.ArcRotateCamera;
   private _things: MyAnimation[];
 
-  constructor(engine: BABYLON.Engine) {
+  constructor(name: string, engine: BABYLON.Engine) {
     super(engine);
+
+    this._name = name;
+
+    this._camera = new BABYLON.ArcRotateCamera("camera", 0, 0, 0, new BABYLON.Vector3(0, 0, 0), this);
+    this._camera.setPosition(new BABYLON.Vector3(0, 0, -30));
+    this.activeCamera.attachControl(this.canvas);
+
+    let light = new BABYLON.HemisphericLight("light", new BABYLON.Vector3(0, 0, 0), this);
+    light.diffuse = new BABYLON.Color3(1, 1, 1);
+    light.specular = new BABYLON.Color3(1, 1, 1);
 
     this._things = [];
 
@@ -17,6 +38,9 @@ class MyScene extends BABYLON.Scene implements MyAnimation {
     // so the canvas background color shows through
     this.clearColor = new BABYLON.Color4(0.0, 0, 0, 0.0);
     console.log("this.clearColor=" + this.clearColor);
+
+    // Don't clear by default, otherwise only one scene will be scene
+    this.autoClear = false;
   }
 
   addThing(thing: MyAnimation) {
@@ -27,6 +51,7 @@ class MyScene extends BABYLON.Scene implements MyAnimation {
       for (let thing of this._things) {
         thing.animate();
       }
+      this.render();
   }
 
   get engine() : BABYLON.Engine {
@@ -37,7 +62,11 @@ class MyScene extends BABYLON.Scene implements MyAnimation {
   }
 }
 
+/**
+ * A Cube class that defines a cube where its parameters can be controlled
+ */
 class Cube implements MyAnimation {
+    private _name: string;
     private _scene: MyScene;
     private _box: BABYLON.Mesh;
     private _position: BABYLON.Vector3;
@@ -47,19 +76,21 @@ class Cube implements MyAnimation {
     private _colors: BABYLON.Color4;
     private _size: number;
 
-  constructor(scene: MyScene,
+  constructor(name: string, scene: MyScene,
               options?: {
                 rotationX?: number, rotationY?: number, rotationZ?: number,
                 position?: BABYLON.Vector3,
                 colors?: BABYLON.Color4,
                 size?: number,
               } ) {
+    this._name = name;
     this._scene = scene;
     this._rotationX = (options && options.rotationX) ? options.rotationX : 0.0;
     this._rotationY = (options && options.rotationY) ? options.rotationY : 0.0;
     this._rotationZ = (options && options.rotationZ) ? options.rotationZ : 0.0;
     this._colors = (options && options.colors) ? options.colors : new BABYLON.Color4(0.5, 0.5, 0.5, 1.0);
     this._size = (options && options.size) ? options.size : 3;
+    console.log("Cube._colors=" + this._colors);
 
     this._box = BABYLON.MeshBuilder.CreateBox("box", {size: this._size,
                   faceColors: [
@@ -91,24 +122,16 @@ class Cube implements MyAnimation {
   }
 }
 
+/**
+ * A test class that displays multiple scenes
+ */
 class Test {
-  private _mainScene: MyScene;
+  private _engine: BABYLON.Engine;
   private _otherScenes: MyScene[];
 
-  constructor(mainScene: MyScene) {
-    this._mainScene = mainScene;
+  constructor(engine: BABYLON.Engine) {
+    this._engine = engine;
     this._otherScenes = [];
-
-    //let camera = new BABYLON.ArcRotateCamera("camera", 1, 0.8, 10, new BABYLON.Vector3(0, 0, 0), this._scene);
-    let camera = new BABYLON.ArcRotateCamera("camera", 0, 0, 0, new BABYLON.Vector3(0, 0, 0), this._mainScene);
-    camera.setPosition(new BABYLON.Vector3(0, 0, -30));
-
-    this._mainScene.activeCamera.attachControl(this._mainScene.canvas);
-
-    let light = new BABYLON.HemisphericLight("light", new BABYLON.Vector3(0, 0, 0), this._mainScene);
-    light.diffuse = new BABYLON.Color3(1, 1, 1);
-    light.specular = new BABYLON.Color3(1, 1, 1);
-
   }
 
   addScene(scene: MyScene) {
@@ -116,42 +139,43 @@ class Test {
   }
 
   animate() : void {
-    this._mainScene.engine.runRenderLoop(() => {
-      this._mainScene.animate();
-      this._mainScene.render();
+    // Have the first one clear the screen
+    this._otherScenes[0].autoClear = true;
+    this._engine.runRenderLoop(() => {
       for (let aScene of this._otherScenes) {
         aScene.animate();
-        //aScene.render(); // Causes an error because no camera?
       }
     });
   }
 }
 
+// Create a canvas and engine shared by all of the scenes
 let canvasName = 'canvas';
 let canvas = <HTMLCanvasElement>document.getElementById(canvasName);
 let engine = new BABYLON.Engine(canvas, true) ;
-let mainScene = new MyScene(engine);
-let cube0 = new Cube(mainScene,
-                     {rotationX: 0.0, rotationY: 0.0, rotationZ: 0.0,
-                       size: 1, position: new BABYLON.Vector3(0, 0, 0),
-                       colors: new BABYLON.Color4(1, 0, 0, 1)});
 
-let test = new Test(mainScene);
+// Create the tester adding some scenes
+let test = new Test(engine);
 
-let scene1 = new MyScene(engine);
-let cube1 = new Cube(scene1,
+// Scene1 with one cube
+let scene1 = new MyScene("scene1", engine);
+let cube1 = new Cube("cube1", scene1,
                      {rotationX: 0.005, rotationY: 0.005, rotationZ: 0.005,
                        size: 2, position: new BABYLON.Vector3(2, 2, 0),
-                       colors: new BABYLON.Color4(0, 1, 0, 1)});
+                       colors: new BABYLON.Color4(1, 1, 0, 1)});
+scene1.addThing(cube1);
 test.addScene(scene1);
 
-let scene2 = new MyScene(engine);
-let cube2 = new Cube(scene2,
+// Scene2 with one cube
+let scene2 = new MyScene("scene2", engine);
+let cube2 = new Cube("cube2", scene2,
                      {rotationX: 0.01, rotationY: 0.02, rotationZ: 0.03,
                        size: 2, position: new BABYLON.Vector3(-2, -2, 0),
-                       colors: new BABYLON.Color4(0, 1, 1, 1)});
+                       colors: new BABYLON.Color4(1, 0, 0, 1)});
+scene2.addThing(cube2);
 test.addScene(scene2);
 
+// Start "animating"
 test.animate();
 
 console.log("done");
